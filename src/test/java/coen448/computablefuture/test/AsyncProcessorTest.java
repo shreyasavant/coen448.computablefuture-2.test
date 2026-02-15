@@ -1,6 +1,5 @@
 package coen448.computablefuture.test;
 
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -12,37 +11,35 @@ import java.util.concurrent.*;
 import org.junit.jupiter.api.RepeatedTest;
 
 public class AsyncProcessorTest {
-	@RepeatedTest(5)
+    @RepeatedTest(5)
     public void testProcessAsyncSuccess() throws ExecutionException, InterruptedException {
-        
-		Microservice mockService1 = mock(Microservice.class);
+
+        Microservice mockService1 = mock(Microservice.class);
         Microservice mockService2 = mock(Microservice.class);
-        
+
         when(mockService1.retrieveAsync(any())).thenReturn(CompletableFuture.completedFuture("Hello"));
         when(mockService2.retrieveAsync(any())).thenReturn(CompletableFuture.completedFuture("World"));
 
         AsyncProcessor processor = new AsyncProcessor();
         CompletableFuture<String> resultFuture = processor.processAsync(List.of(mockService1, mockService2), null);
-        
+
         String result = resultFuture.get();
         assertEquals("Hello World", result);
-        
-//        CompletableFuture<List<String>> resultFuture =
-//        	    processor.processAsyncWithCompletionOrder(
-//        	        List.of(mockService1, mockService2));
 
-//        	List<String> order = resultFuture.get();
-//        	System.out.println(order);
+        // CompletableFuture<List<String>> resultFuture =
+        // processor.processAsyncWithCompletionOrder(
+        // List.of(mockService1, mockService2));
 
-        
+        // List<String> order = resultFuture.get();
+        // System.out.println(order);
+
     }
-	
-	
-	@ParameterizedTest
+
+    @ParameterizedTest
     @CsvSource({
-        "hi, Hello:HI World:HI",
-        "cloud, Hello:CLOUD World:CLOUD",
-        "async, Hello:ASYNC World:ASYNC"
+            "hi, Hello:HI World:HI",
+            "cloud, Hello:CLOUD World:CLOUD",
+            "async, Hello:ASYNC World:ASYNC"
     })
     public void testProcessAsync_withDifferentMessages(
             String message,
@@ -54,17 +51,15 @@ public class AsyncProcessorTest {
 
         AsyncProcessor processor = new AsyncProcessor();
 
-        CompletableFuture<String> resultFuture =
-            processor.processAsync(List.of(service1, service2), message);
+        CompletableFuture<String> resultFuture = processor.processAsync(List.of(service1, service2), message);
 
         String result = resultFuture.get(1, TimeUnit.SECONDS);
 
         assertEquals(expectedResult, result);
-        
+
     }
-	
-	
-	@RepeatedTest(20)
+
+    @RepeatedTest(20)
     void showNondeterminism_completionOrderVaries() throws Exception {
 
         Microservice s1 = new Microservice("A");
@@ -74,18 +69,49 @@ public class AsyncProcessorTest {
         AsyncProcessor processor = new AsyncProcessor();
 
         List<String> order = processor
-            .processAsyncCompletionOrder(List.of(s1, s2, s3), "msg")
-            .get(1, TimeUnit.SECONDS);
+                .processAsyncCompletionOrder(List.of(s1, s2, s3), "msg")
+                .get(1, TimeUnit.SECONDS);
 
         // Not asserting a fixed order (because it is intentionally nondeterministic)
         System.out.println(order);
 
         // A minimal sanity check: all three must be present
         assertEquals(3, order.size());
-   
+
         assertTrue(order.stream().anyMatch(x -> x.startsWith("A:")));
         assertTrue(order.stream().anyMatch(x -> x.startsWith("B:")));
         assertTrue(order.stream().anyMatch(x -> x.startsWith("C:")));
     }
+
+    @Test
+    public void testProcessAsyncFailFast_Success() throws Exception {
+        Microservice s1 = mock(Microservice.class);
+        Microservice s2 = mock(Microservice.class);
+
+        when(s1.retrieveAsync("m1")).thenReturn(CompletableFuture.completedFuture("R1"));
+        when(s2.retrieveAsync("m2")).thenReturn(CompletableFuture.completedFuture("R2"));
+
+        AsyncProcessor processor = new AsyncProcessor();
+        String result = processor.processAsyncFailFast(List.of(s1, s2), List.of("m1", "m2")).get();
+
+        assertEquals("R1 R2", result);
+    }
+
+    @Test
+    public void testProcessAsyncFailFast_Failure() {
+        Microservice s1 = mock(Microservice.class);
+        Microservice s2 = mock(Microservice.class);
+
+        when(s1.retrieveAsync("m1")).thenReturn(CompletableFuture.completedFuture("R1"));
+        when(s2.retrieveAsync("m2")).thenAnswer(inv -> {
+            CompletableFuture<String> future = new CompletableFuture<>();
+            future.completeExceptionally(new RuntimeException("Service Failure"));
+            return future;
+        });
+
+        AsyncProcessor processor = new AsyncProcessor();
+        CompletableFuture<String> resultFuture = processor.processAsyncFailFast(List.of(s1, s2), List.of("m1", "m2"));
+
+        assertThrows(ExecutionException.class, resultFuture::get);
+    }
 }
-	
