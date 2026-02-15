@@ -1,6 +1,5 @@
 package coen448.computablefuture.test;
 
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -12,37 +11,27 @@ import java.util.concurrent.*;
 import org.junit.jupiter.api.RepeatedTest;
 
 public class AsyncProcessorTest {
-	@RepeatedTest(5)
+    @RepeatedTest(5)
     public void testProcessAsyncSuccess() throws ExecutionException, InterruptedException {
-        
-		Microservice mockService1 = mock(Microservice.class);
+
+        Microservice mockService1 = mock(Microservice.class);
         Microservice mockService2 = mock(Microservice.class);
-        
+
         when(mockService1.retrieveAsync(any())).thenReturn(CompletableFuture.completedFuture("Hello"));
         when(mockService2.retrieveAsync(any())).thenReturn(CompletableFuture.completedFuture("World"));
 
         AsyncProcessor processor = new AsyncProcessor();
         CompletableFuture<String> resultFuture = processor.processAsync(List.of(mockService1, mockService2), null);
-        
+
         String result = resultFuture.get();
         assertEquals("Hello World", result);
-        
-//        CompletableFuture<List<String>> resultFuture =
-//        	    processor.processAsyncWithCompletionOrder(
-//        	        List.of(mockService1, mockService2));
-
-//        	List<String> order = resultFuture.get();
-//        	System.out.println(order);
-
-        
     }
-	
-	
-	@ParameterizedTest
+
+    @ParameterizedTest
     @CsvSource({
-        "hi, Hello:HI World:HI",
-        "cloud, Hello:CLOUD World:CLOUD",
-        "async, Hello:ASYNC World:ASYNC"
+            "hi, Hello:HI World:HI",
+            "cloud, Hello:CLOUD World:CLOUD",
+            "async, Hello:ASYNC World:ASYNC"
     })
     public void testProcessAsync_withDifferentMessages(
             String message,
@@ -54,17 +43,15 @@ public class AsyncProcessorTest {
 
         AsyncProcessor processor = new AsyncProcessor();
 
-        CompletableFuture<String> resultFuture =
-            processor.processAsync(List.of(service1, service2), message);
+        CompletableFuture<String> resultFuture = processor.processAsync(List.of(service1, service2), message);
 
         String result = resultFuture.get(1, TimeUnit.SECONDS);
 
         assertEquals(expectedResult, result);
-        
+
     }
-	
-	
-	@RepeatedTest(20)
+
+    @RepeatedTest(20)
     void showNondeterminism_completionOrderVaries() throws Exception {
 
         Microservice s1 = new Microservice("A");
@@ -74,18 +61,40 @@ public class AsyncProcessorTest {
         AsyncProcessor processor = new AsyncProcessor();
 
         List<String> order = processor
-            .processAsyncCompletionOrder(List.of(s1, s2, s3), "msg")
-            .get(1, TimeUnit.SECONDS);
+                .processAsyncCompletionOrder(List.of(s1, s2, s3), "msg")
+                .get(1, TimeUnit.SECONDS);
 
         // Not asserting a fixed order (because it is intentionally nondeterministic)
         System.out.println(order);
 
         // A minimal sanity check: all three must be present
         assertEquals(3, order.size());
-   
+
         assertTrue(order.stream().anyMatch(x -> x.startsWith("A:")));
         assertTrue(order.stream().anyMatch(x -> x.startsWith("B:")));
         assertTrue(order.stream().anyMatch(x -> x.startsWith("C:")));
     }
+
+    @Test
+    public void testProcessAsyncFailSoft_WithFailures() throws Exception {
+        Microservice s1 = mock(Microservice.class);
+        Microservice s2 = mock(Microservice.class);
+        String fallback = "FALLBACK";
+
+        when(s1.retrieveAsync("m1")).thenReturn(CompletableFuture.completedFuture("R1"));
+        when(s2.retrieveAsync("m2")).thenAnswer(inv -> {
+            CompletableFuture<String> future = new CompletableFuture<>();
+            future.completeExceptionally(new RuntimeException("Service 2 Failure"));
+            return future;
+        });
+
+        AsyncProcessor processor = new AsyncProcessor();
+        String result = processor.processAsyncFailSoft(
+                List.of(s1, s2),
+                List.of("m1", "m2"),
+                fallback).get();
+
+        // Failed service should be replaced by fallback
+        assertEquals("R1 " + fallback, result);
+    }
 }
-	
