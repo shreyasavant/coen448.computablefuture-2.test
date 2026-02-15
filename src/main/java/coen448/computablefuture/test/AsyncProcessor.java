@@ -48,9 +48,7 @@ public class AsyncProcessor {
                                                 .collect(Collectors.joining(" ")));
         }
 
-        /**
-         * Logic for Fail-Partial: return only successful results.
-         */
+        
         public CompletableFuture<List<String>> processAsyncFailPartial(List<Microservice> services, String message) {
                 List<CompletableFuture<String>> futures = services.stream()
                                 .map(ms -> ms.retrieveAsync(message)
@@ -64,9 +62,7 @@ public class AsyncProcessor {
                                                 .collect(Collectors.toList()));
         }
 
-        /**
-         * Logic for Fail-Soft: use fallback value on failure.
-         */
+       
         public CompletableFuture<List<String>> processAsyncFailSoft(List<Microservice> services, String message,
                         String fallback) {
                 List<CompletableFuture<String>> futures = services.stream()
