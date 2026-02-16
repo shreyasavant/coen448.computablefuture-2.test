@@ -3,22 +3,36 @@ package coen448.computablefuture.test;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Test variants of Microservice for testing different failure scenarios.
+ */
 public class MicroserviceVariants {
 
-    public static class SuccessMicroservice implements Microservice {
-        private final String id;
-
-        public SuccessMicroservice(String id) {
-            this.id = id;
+    /**
+     * Always succeeds with a predefined response (no jitter for deterministic testing).
+     */
+    public static class SuccessMicroservice extends Microservice {
+        
+        public SuccessMicroservice(String serviceId) {
+            super(serviceId);
         }
-
+        
         @Override
         public CompletableFuture<String> retrieveAsync(String input) {
-            return CompletableFuture.completedFuture(id + ":" + input);
+            // Override to provide deterministic success without jitter
+            return CompletableFuture.completedFuture(getServiceId() + ":" + input.toUpperCase());
         }
     }
 
-    public static class FailureMicroservice implements Microservice {
+    /**
+     * Always fails with a RuntimeException.
+     */
+    public static class FailureMicroservice extends Microservice {
+        
+        public FailureMicroservice() {
+            super("FAIL");
+        }
+        
         @Override
         public CompletableFuture<String> retrieveAsync(String input) {
             CompletableFuture<String> future = new CompletableFuture<>();
@@ -27,12 +41,14 @@ public class MicroserviceVariants {
         }
     }
 
-    public static class DelayedMicroservice implements Microservice {
-        private final String id;
+    /**
+     * Succeeds after a specified delay.
+     */
+    public static class DelayedMicroservice extends Microservice {
         private final long delayMs;
 
-        public DelayedMicroservice(String id, long delayMs) {
-            this.id = id;
+        public DelayedMicroservice(String serviceId, long delayMs) {
+            super(serviceId);
             this.delayMs = delayMs;
         }
 
@@ -43,8 +59,9 @@ public class MicroserviceVariants {
                     TimeUnit.MILLISECONDS.sleep(delayMs);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
                 }
-                return id + ":" + input;
+                return getServiceId() + ":" + input.toUpperCase();
             });
         }
     }
