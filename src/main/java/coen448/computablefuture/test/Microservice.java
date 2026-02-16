@@ -1,6 +1,9 @@
 package coen448.computablefuture.test;
 
+
+import java.util.List;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 class Microservice {
 	
@@ -10,11 +13,10 @@ class Microservice {
         this.serviceId = serviceId;
     }
 
-    // Add protected getter for subclasses
-    protected String getServiceId() {
-        return serviceId;
-    }
-
+//    public CompletableFuture<String> retrieveAsync(String input) {
+//        // include input in the output so tests can verify the passed message
+//        return CompletableFuture.supplyAsync(() -> serviceId + ":" + input.toUpperCase());
+//    }
     public CompletableFuture<String> retrieveAsync(String input) {
         return CompletableFuture.supplyAsync(() -> {
             // jitter: 0..30ms to perturb scheduling
@@ -26,6 +28,7 @@ class Microservice {
                 throw new RuntimeException(e);
             }
             return serviceId + ":" + input.toUpperCase();
+            //return serviceId + ":" + input.toUpperCase() + "(" + delayMs + "ms)";
         });
     }
     
